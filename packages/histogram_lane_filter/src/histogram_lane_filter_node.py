@@ -15,6 +15,8 @@ from dt_computer_vision.camera import CameraModel
 from dt_computer_vision.camera.homography import Homography, HomographyToolkit
 from dt_computer_vision.ground_projection import GroundProjector
 
+from dt_state_estimation.lane_filter.rendering import plot_belief
+
 import cv2
 from solution.lane_filter import LaneFilterHistogram
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
@@ -44,8 +46,8 @@ class HistogramLaneFilterNode(DTROS):
     Publishers:
         ~lane_pose (:obj:`LanePose`): The computed lane pose estimate
         ~segments_img (:obj:`Image`): The detected segments
-        ~projected_segments_img (:obj:`Image`): The ground projected segments
-        ~belief_img (:obj:`Image`): A visualization of the belief histogram as an image
+        ~projected_segments_img (:obj:`CompressedImage`): The ground projected segments
+        ~belief_img (:obj:`CompressedImage`): A visualization of the belief histogram as an image
 
     """
 
@@ -90,15 +92,15 @@ class HistogramLaneFilterNode(DTROS):
         )
 
         self.pub_belief_img = rospy.Publisher(
-            "~belief_img", Image, queue_size=1, dt_topic_type=TopicType.DEBUG
+            "~belief_img/compressed", CompressedImage, queue_size=1, dt_topic_type=TopicType.DEBUG
         )
 
         self.pub_segments_img = rospy.Publisher(
-            "~segments_img", Image, queue_size=1, dt_topic_type=TopicType.DEBUG
+            "~segments_img/compressed", CompressedImage, queue_size=1, dt_topic_type=TopicType.DEBUG
         )
 
         self.pub_projected_segments_img = rospy.Publisher(
-            "~projected_segments_img", Image, queue_size=1, dt_topic_type=TopicType.DEBUG
+            "~projected_segments_img/compressed", CompressedImage, queue_size=1, dt_topic_type=TopicType.DEBUG
         )
 
 
@@ -188,7 +190,7 @@ class HistogramLaneFilterNode(DTROS):
 
     def publishEstimate(self, stamp):
 
-        [d_max, phi_max] = self.filter.getEstimate()
+        [d_max, phi_max] = self.filter.get_estimate()
 
         # build lane pose message to send
         lanePose = LanePose()
@@ -200,18 +202,23 @@ class HistogramLaneFilterNode(DTROS):
 
         self.pub_lane_pose.publish(lanePose)
         if self._debug:
-            self.debugOutput()
+            self.debugOutput(lanePose.header)
 
-    def debugOutput(self):
+    def debugOutput(self, header):
         """Creates and publishes debug messages"""
 
         # Create belief image and publish it
-        belief_img = self.bridge.cv2_to_imgmsg(np.array(255 * self.filter.belief).astype("uint8"), "mono8")
+        belief_img = self.bridge.cv2_to_compressed_imgmsg(
+            plot_belief(self.filter,dpi=300)
+        )
         self.pub_belief_img.publish(belief_img)
-        segments_img = self.bridge.cv2_to_imgmsg(self.filter.image_w_dets)
-        self.pub_segments_img.publish(segments_img)
-        projected_segments_img = self.bridge.cv2_to_imgmsg(cv2.cvtColor(self.filter.image_w_segs_rgb,cv2.COLOR_BGR2RGB))
-        self.pub_projected_segments_img.publish(projected_segments_img)
+        segments_img_msg = self.bridge.cv2_to_compressed_imgmsg(self.filter.image_w_dets)
+        segments_img_msg.header = header
+        self.pub_segments_img.publish(segments_img_msg)
+        projected_segments_img_msg = self.bridge.cv2_to_compressed_imgmsg(
+            self.filter.image_w_segs_rgb)
+        projected_segments_img_msg.header = header
+        self.pub_projected_segments_img.publish(projected_segments_img_msg)
 
 
 

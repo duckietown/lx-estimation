@@ -1,11 +1,12 @@
 from collections import OrderedDict
-from scipy.stats import multivariate_normal
+from scipy.stats import entropy
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 from math import floor, sqrt
 
 from solution.histogram_filter import histogram_update, histogram_predict, histogram_prior
 from dt_computer_vision.ground_projection import GroundProjector
+
 from typing import Tuple, Dict, Union, List
 from dt_computer_vision.camera import CameraModel, NormalizedImagePoint, Pixel
 from dt_computer_vision.ground_projection import GroundProjector
@@ -14,11 +15,10 @@ from dt_computer_vision.ground_projection.types import GroundPoint
 from dt_computer_vision.line_detection import LineDetector, ColorRange, Detections
 from dt_computer_vision.line_detection.rendering import draw_segments
 from dt_state_estimation.lane_filter.types import Segment, SegmentColor, SegmentPoint
-
+from dt_state_estimation.lane_filter import ILaneFilter
 Color = Tuple[int, int, int]
 
-
-class LaneFilterHistogram:
+class LaneFilterHistogram(ILaneFilter):
     """Generates an estimate of the lane pose.
 
 
@@ -59,7 +59,8 @@ class LaneFilterHistogram:
     range_est: float
     range_max: float
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
+        super(LaneFilterHistogram,self).__init__(*args,**kwargs)
         param_names = [
             "mean_d_0",
             "mean_phi_0",
@@ -119,10 +120,11 @@ class LaneFilterHistogram:
         self.cov_0 = [[self.sigma_d_0, 0], [0, self.sigma_phi_0]]
         self.cov_mask = [self.sigma_d_mask, self.sigma_phi_mask]
 
+
         # Additional variables
         self.initialized = False
         self.camera_initialized = False
-        self.crop_top = 200
+        self.crop_top = 240
         self.initialize()
         # colors
         self.color_ranges: Dict[str, ColorRange] = {
@@ -168,7 +170,7 @@ class LaneFilterHistogram:
     def lines_to_projected_segments(self, lines):
         segments: List[Segment] = []
         colored_segments: Dict[Color, List[Tuple[GroundPoint, GroundPoint]]] = {}
-        grid = draw_grid_image((400, 400))
+
 
         for color, colored_lines in lines.items():
             grounded_segments: List[Tuple[GroundPoint, GroundPoint]] = []
@@ -193,8 +195,8 @@ class LaneFilterHistogram:
                 grounded_segments.append((grounded_p0, grounded_p1))
 
             colored_segments[self.colors[color]] = grounded_segments
-        image_w_segs = debug_image(colored_segments, (400, 400), background_image=grid)
-        self.image_w_segs_rgb = image_w_segs[:, :, [2, 1, 0]]
+        image_w_segs = debug_image(colored_segments, (300, 300), grid_size=6, s_segment_thickness=5)
+        self.image_w_segs_rgb = image_w_segs
         return segments
 
     def initialize(self):
@@ -206,6 +208,12 @@ class LaneFilterHistogram:
         self.camera = camera
         self.projector = projector
         self.camera_initialized = True
+
+
+    def get_entropy(self) -> float:
+        belief = self.belief
+        s = entropy(belief.flatten())
+        return s
 
     def predict(self, left_encoder_delta_ticks, right_encoder_delta_ticks):
         if not self.initialized:
@@ -226,9 +234,20 @@ class LaneFilterHistogram:
             self.belief, segments, self.road_spec, self.grid_spec
         )
 
-    def getEstimate(self):
+    def get_estimate(self):
         maxids = np.unravel_index(self.belief.argmax(), self.belief.shape)
         d_max = self.d_min + (maxids[0] + 0.5) * self.delta_d
         phi_max = self.phi_min + (maxids[1] + 0.5) * self.delta_phi
 
         return [d_max, phi_max]
+
+    def get_max(self) -> float:
+        return self.belief.max()
+
+    def get_inlier_segments(self, segments: List[Segment], d_max, phi_max):
+        inlier_segments = []
+        for segment in segments:
+            d_s, phi_s, l, w = self._generate_vote(segment)
+            if abs(d_s - d_max) < self.delta_d and abs(phi_s - phi_max) < self.delta_phi:
+                inlier_segments.append(segment)
+        return inlier_segments
