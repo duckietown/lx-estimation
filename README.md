@@ -186,7 +186,7 @@ ros2 param set /ROBOT_NAME/histogram_lane_filter_node sigma_d_mask 2.0
 ros2 service call /ROBOT_NAME/histogram_lane_filter_node/reset std_srvs/srv/Trigger
 ```
 
-If you did not set `VEHICLE_NAME`, run `export VEHICLE_NAME=ROBOT_NAME` in the terminal first.
+Run `dt-ros2-connect ROBOT_NAME` in the terminal first so the `ros2` tools talk to your robot.
 
 
 Now you can proceed to the [first notebook](notebooks/01-kalman-filter/kalman-filter.ipynb).
