@@ -104,7 +104,7 @@ Now bring up the ROS 2 stack of the virtual robot (camera, wheel encoders, wheel
 still boot the ROS 1 stack by themselves; the ROS 2 stack is started explicitly for now:
 
 ```
-dts stack up -R [VBOT] ros2/duckiebot
+dts stack up -H [VBOT] ros2/duckiebot
 ```
 
 Now that your virtual robot is ready you can start the Duckiematrix. From this exercise directory do:
@@ -121,11 +121,11 @@ You should see the Unity-based Duckiematrix simulator start up.
 After `dts duckiebot update ROBOT_NAME`, bring up the ROS 2 stack of the robot:
 
 ```
-dts stack up -R ROBOT_NAME ros2/duckiebot
+dts stack up -H ROBOT_NAME ros2/duckiebot
 ```
 
 The histogram lane filter of this exercise detects the lane markings itself from the camera images, so the
-lane-following demo stack (`dts stack up -R ROBOT_NAME ros2-core/default`) is not needed.
+lane-following demo stack (`dts stack up -H ROBOT_NAME ros2-core/default`) is not needed.
 
 
 ### 💻 Testing 
