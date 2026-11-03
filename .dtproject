@@ -10,7 +10,7 @@ NAME=lx-estimation
 RECIPE_REPOSITORY=duckietown/lx-recipe-estimation
 
 # - branch of RECIPE_REPOSITORY containing the recipe
-RECIPE_BRANCH=ente
+RECIPE_BRANCH=DTSW-8523-convert-lx-estimation-to-ros2
 
 # - location of the recipe inside the RECIPE_REPOSITORY/RECIPE_BRANCH above
 RECIPE_LOCATION=
